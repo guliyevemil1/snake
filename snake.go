@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/nsf/termbox-go"
@@ -26,12 +27,19 @@ type Tuple struct {
 
 type Box struct {
 	W, H  int
+	Dead  bool
 	Snake []Tuple
 	Dir   int
+	Food  []Tuple
 }
 
 func (b *Box) Move() {
+	w, h := b.W-2, b.H-2
 	head := b.Snake[len(b.Snake)-1]
+	prev := Tuple{-1, -1}
+	if len(b.Snake) > 1 {
+		prev = b.Snake[len(b.Snake)-2]
+	}
 	var t Tuple
 	switch b.Dir {
 	case 0:
@@ -43,14 +51,48 @@ func (b *Box) Move() {
 	case 3:
 		t.X, t.Y = head.X, head.Y-1
 	}
-	if t.X < 0 {
-		t.X += b.W - 2
+	if prev.X != -1 && prev.Y != -1 {
+		if t.X == prev.X && t.Y == prev.Y {
+			b.Dead = true
+			return
+		}
 	}
-	if t.Y < 0 {
-		t.Y += b.H - 2
+	if t.X < 0 || t.X >= w || t.Y < 0 || t.Y >= h {
+		b.Dead = true
+		return
 	}
-	t.X, t.Y = t.X%(b.W-2), t.Y%(b.H-2)
-	b.Snake = append(b.Snake[1:], t)
+	var ate bool
+	for i, f := range b.Food {
+		if f.X == t.X && f.Y == t.Y {
+			ate = true
+			copy(b.Food[i:], b.Food[i+1:])
+			b.Food = b.Food[:len(b.Food)-1]
+			break
+		}
+	}
+	if ate {
+		b.Snake = append(b.Snake, t)
+	} else {
+		b.Snake = append(b.Snake[1:], t)
+	}
+	if rand.Intn(100) == 0 {
+	food:
+		for {
+			x, y := rand.Intn(w), rand.Intn(h)
+			for _, t := range b.Snake {
+				if x == t.X && y == t.Y {
+					continue food
+				}
+			}
+			b.Food = append(b.Food, Tuple{x, y})
+			break
+		}
+	}
+	if rand.Intn(1000) == 0 {
+		if len(b.Food) > 0 {
+			b.Food = b.Food[1:]
+		}
+	}
 }
 
 func (b *Box) DrawBorder() {
@@ -69,6 +111,10 @@ func (b *Box) Draw() {
 	for i := range b.Snake {
 		s := b.Snake[i]
 		termbox.SetCell(s.X+1, s.Y+1, 'O', termbox.ColorWhite, termbox.ColorBlack)
+	}
+	for i := range b.Food {
+		f := b.Food[i]
+		termbox.SetCell(f.X+1, f.Y+1, 'X', termbox.ColorWhite, termbox.ColorBlack)
 	}
 }
 
@@ -116,6 +162,9 @@ loop:
 		default:
 			termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 			b.Move()
+			if b.Dead {
+				break loop
+			}
 			b.Draw()
 			termbox.Flush()
 			time.Sleep(50 * time.Millisecond)
