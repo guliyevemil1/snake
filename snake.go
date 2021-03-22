@@ -31,9 +31,11 @@ type Box struct {
 	Snake []Tuple
 	Dir   int
 	Food  []Tuple
+	Turn  int64
 }
 
 func (b *Box) Move() {
+	b.Turn++
 	w, h := b.W-2, b.H-2
 	head := b.Snake[len(b.Snake)-1]
 	prev := Tuple{-1, -1}
@@ -73,9 +75,10 @@ func (b *Box) Move() {
 	if ate {
 		b.Snake = append(b.Snake, t)
 	} else {
-		b.Snake = append(b.Snake[1:], t)
+		copy(b.Snake, b.Snake[1:])
+		b.Snake[len(b.Snake)-1] = t
 	}
-	if rand.Intn(100) == 0 {
+	if len(b.Food) == 0 || rand.Intn(100) == 0 {
 	food:
 		for {
 			x, y := rand.Intn(w), rand.Intn(h)
@@ -88,8 +91,8 @@ func (b *Box) Move() {
 			break
 		}
 	}
-	if rand.Intn(1000) == 0 {
-		if len(b.Food) > 0 {
+	if len(b.Food) > 1 {
+		if b.Turn%100 == 0 {
 			b.Food = b.Food[1:]
 		}
 	}
